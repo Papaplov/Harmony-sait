@@ -1,0 +1,3 @@
+# Dockerfile-заглушка
+
+FROM scratch

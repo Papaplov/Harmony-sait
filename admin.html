@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Админ-панель</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body { font-family: Arial, sans-serif; background:#f5f6fa; margin:0; }
+header { background:#6c63ff; color:#fff; padding:16px; }
+.container { padding:20px; }
+.tabs { display:flex; gap:10px; margin-bottom:20px; }
+.tab { padding:10px 16px; background:#fff; border-radius:6px; cursor:pointer; border:1px solid #ddd; }
+.tab.active { background:#6c63ff; color:#fff; }
+.panel { background:#fff; padding:16px; border-radius:8px; }
+button { padding:6px 12px; margin:4px; cursor:pointer; }
+input { padding:6px; margin:4px; }
+.item { border-bottom:1px solid #eee; padding:8px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h2>Админ-панель Harmony</h2>
+</header>
+
+<div class="container">
+  <div class="tabs">
+    <div class="tab active" data-col="students">Ученики</div>
+    <div class="tab" data-col="teachers">Преподаватели</div>
+    <div class="tab" data-col="schedules">Расписание</div>
+    <div class="tab" data-col="instruments">Инструменты</div>
+  </div>
+
+  <div id="panel" class="panel">Загрузка...</div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyAVKFwa8SmjzbnWlcGPkzZ4OppiGYNNcN4",
+  authDomain: "sait-a53b0.firebaseapp.com",
+  projectId: "sait-a53b0",
+  storageBucket: "sait-a53b0.firebasestorage.app",
+  messagingSenderId: "983380745618",
+  appId: "1:983380745618:web:05874c26f76c47cac4754b",
+  measurementId: "G-NTVYG8WMV5"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const panel = document.getElementById('panel');
+const tabs = document.querySelectorAll('.tab');
+let currentCol = 'students';
+
+// 🔐 Проверка админа
+onAuthStateChanged(auth, async user => {
+  if (!user) {
+    alert('Сначала войди');
+    location.href = 'auth.html';
+    return;
+  }
+
+  const snap = await getDoc(doc(db, 'users', user.uid));
+  if (!snap.exists() || snap.data().role !== 'admin') {
+    alert('Ты не админ');
+    location.href = 'main.html';
+    return;
+  }
+
+  loadCollection();
+});
+
+// вкладки
+tabs.forEach(t => t.onclick = () => {
+  tabs.forEach(x => x.classList.remove('active'));
+  t.classList.add('active');
+  currentCol = t.dataset.col;
+  loadCollection();
+});
+
+// загрузка данных
+async function loadCollection() {
+  panel.innerHTML = `<h3>${currentCol}</h3>`;
+
+  const snap = await getDocs(collection(db, currentCol));
+
+  snap.forEach(d => {
+    const div = document.createElement('div');
+    div.className = 'item';
+    div.innerHTML = `<b>${d.id}</b> — ${JSON.stringify(d.data())}`;
+
+    const del = document.createElement('button');
+    del.textContent = 'Удалить';
+    del.onclick = () => deleteDoc(doc(db, currentCol, d.id)).then(loadCollection);
+
+    div.appendChild(del);
+    panel.appendChild(div);
+  });
+
+  // форма добавления
+  const form = document.createElement('div');
+  form.innerHTML = `
+    <h4>Добавить</h4>
+    <input id="f1" placeholder="name / title">
+    <button id="add">Добавить</button>
+  `;
+
+  form.querySelector('#add').onclick = async () => {
+    const val = form.querySelector('#f1').value.trim();
+    if (!val) return alert('пусто');
+    await addDoc(collection(db, currentCol), { name: val, createdAt: Date.now() });
+    loadCollection();
+  };
+
+  panel.appendChild(form);
+}
+</script>
+</body>
+</html>
